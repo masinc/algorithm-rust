@@ -1,10 +1,8 @@
-use std::fmt::Debug;
-use std::str::FromStr;
+use itertools::Itertools;
+use std::{error::Error, io::prelude::*};
 
-pub fn bubble_sort<T: Ord + FromStr + Clone + Debug>(seq: &mut Vec<T>) -> usize
-where
-    <T as FromStr>::Err: Debug,
-{
+type Int = usize;
+pub fn bubble_sort(seq: &mut Vec<Int>) -> usize {
     macro_rules! get {
         ($i:expr) => {
             seq.get($i).unwrap()
@@ -35,22 +33,27 @@ where
     swap_count
 }
 
-pub fn input_bubble_sort<T: Ord + FromStr + Clone + Debug>(
-    input: &mut impl Iterator<Item = String>,
-) -> (Vec<T>, usize)
-where
-    <T as FromStr>::Err: Clone + Debug,
-{
-    let _len: usize = input.next().unwrap().parse().unwrap();
-    let mut seq: Vec<T> = input
+pub fn input_bubble_sort(
+    reader: &mut impl Read,
+    writer: &mut impl Write,
+) -> Result<usize, Box<dyn Error>> {
+    let mut buf = String::new();
+    reader.read_to_string(&mut buf)?;
+    let mut buf = buf.lines();
+    let _len: usize = buf.next().unwrap().parse()?;
+    let mut seq: Vec<Int> = buf
         .next()
         .unwrap()
         .split_whitespace()
         .map(|x| x.parse().unwrap())
         .collect();
 
-    let swap_count = bubble_sort(&mut seq);
-    (seq, swap_count)
+    let swap_conunt = bubble_sort(&mut seq);
+
+    let output: String = seq.into_iter().map(|x| x.to_string()).join(" ");
+    writer.write(output.as_bytes())?;
+
+    Ok(swap_conunt)
 }
 
 #[cfg(test)]
@@ -59,13 +62,12 @@ mod test {
 
     #[test]
     fn name() {
-        let input: Vec<String> = vec!["5", "5 3 2 4 1"]
-            .into_iter()
-            .map(String::from)
-            .collect();
+        let input: String = vec!["5", "5 3 2 4 1"].join("\n");
+        let mut output = vec![];
+        let result = input_bubble_sort(&mut input.as_bytes(), &mut output);
 
-        let result = input_bubble_sort(&mut input.into_iter());
-
-        assert_eq!(result, (vec![1, 2, 3, 4, 5], 8))
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 8);
+        assert_eq!(String::from_utf8(output).unwrap(), "1 2 3 4 5");
     }
 }
