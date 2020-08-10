@@ -3,7 +3,7 @@ use std::{error::Error, io::prelude::*};
 
 type Int = isize;
 
-fn insersion_sort_core(seq: &mut [Int], progress: &mut Option<Vec<Vec<Int>>>) {
+fn insersion_sort_core(seq: &mut [Int], progress: &mut Option<Vec<Vec<Int>>>) -> usize {
     macro_rules! get {
         ($i:expr) => {
             seq.get($i as usize).unwrap()
@@ -27,6 +27,8 @@ fn insersion_sort_core(seq: &mut [Int], progress: &mut Option<Vec<Vec<Int>>>) {
         };
     }
 
+    let mut insert_count = 0;
+
     for i in dbg!(1..(seq.len() as isize)) {
         if let Some(progress) = progress {
             push_progress!(progress);
@@ -37,16 +39,20 @@ fn insersion_sort_core(seq: &mut [Int], progress: &mut Option<Vec<Vec<Int>>>) {
         while j >= 0 && get!(j) > &v {
             update!(j + 1, j);
             j -= 1;
+            insert_count += 1;
         }
         set!(j + 1, v);
     }
+
     if let Some(progress) = progress {
         push_progress!(progress);
     }
+
+    insert_count
 }
 
-pub fn insertion_sort(seq: &mut [Int]) {
-    insersion_sort_core(seq, &mut None);
+pub fn insertion_sort(seq: &mut [Int]) -> usize {
+    insersion_sort_core(seq, &mut None)
 }
 
 pub fn insersion_sort2(seq: &mut [Int]) -> Vec<Vec<Int>> {
