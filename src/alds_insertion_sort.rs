@@ -3,7 +3,7 @@ use std::{error::Error, io::prelude::*};
 
 type Int = isize;
 
-fn insersion_sort_core(seq: &mut Vec<Int>, progress: &mut Option<Vec<Vec<Int>>>) {
+fn insersion_sort_core(seq: &mut [Int], progress: &mut Option<Vec<Vec<Int>>>) {
     macro_rules! get {
         ($i:expr) => {
             seq.get($i as usize).unwrap()
@@ -21,9 +21,15 @@ fn insersion_sort_core(seq: &mut Vec<Int>, progress: &mut Option<Vec<Vec<Int>>>)
         };
     }
 
+    macro_rules! push_progress {
+        ($p:ident) => {
+            $p.push(seq.iter().cloned().collect())
+        };
+    }
+
     for i in dbg!(1..(seq.len() as isize)) {
         if let Some(progress) = progress {
-            progress.push(seq.clone());
+            push_progress!(progress);
         }
 
         let v = get!(i).clone();
@@ -35,15 +41,15 @@ fn insersion_sort_core(seq: &mut Vec<Int>, progress: &mut Option<Vec<Vec<Int>>>)
         set!(j + 1, v);
     }
     if let Some(progress) = progress {
-        progress.push(seq.clone());
+        push_progress!(progress);
     }
 }
 
-pub fn insertion_sort(seq: &mut Vec<Int>) {
+pub fn insertion_sort(seq: &mut [Int]) {
     insersion_sort_core(seq, &mut None);
 }
 
-pub fn insersion_sort2(seq: &mut Vec<Int>) -> Vec<Vec<Int>> {
+pub fn insersion_sort2(seq: &mut [Int]) -> Vec<Vec<Int>> {
     let mut result = Some(Vec::with_capacity(seq.len()));
     insersion_sort_core(seq, &mut result);
     result.unwrap()
