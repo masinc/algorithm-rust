@@ -2,7 +2,8 @@ use itertools::Itertools;
 use std::{error::Error, io::prelude::*};
 
 type Int = isize;
-pub fn insersion_sort(seq: &mut Vec<Int>) -> Vec<Vec<Int>> {
+
+fn insersion_sort_core(seq: &mut Vec<Int>, progress: &mut Option<Vec<Vec<Int>>>) {
     macro_rules! get {
         ($i:expr) => {
             seq.get($i as usize).unwrap()
@@ -20,10 +21,11 @@ pub fn insersion_sort(seq: &mut Vec<Int>) -> Vec<Vec<Int>> {
         };
     }
 
-    let mut result = Vec::with_capacity(seq.len());
-
     for i in dbg!(1..(seq.len() as isize)) {
-        result.push(seq.clone());
+        if let Some(progress) = progress {
+            progress.push(seq.clone());
+        }
+
         let v = get!(i).clone();
         let mut j: isize = i - 1;
         while j >= 0 && get!(j) > &v {
@@ -32,8 +34,19 @@ pub fn insersion_sort(seq: &mut Vec<Int>) -> Vec<Vec<Int>> {
         }
         set!(j + 1, v);
     }
-    result.push(seq.clone());
-    result
+    if let Some(progress) = progress {
+        progress.push(seq.clone());
+    }
+}
+
+pub fn insertion_sort(seq: &mut Vec<Int>) {
+    insersion_sort_core(seq, &mut None);
+}
+
+pub fn insersion_sort2(seq: &mut Vec<Int>) -> Vec<Vec<Int>> {
+    let mut result = Some(Vec::with_capacity(seq.len()));
+    insersion_sort_core(seq, &mut result);
+    result.unwrap()
 }
 
 pub fn input_insertion_sort(
@@ -52,7 +65,7 @@ pub fn input_insertion_sort(
         .map(|s| s.parse().unwrap())
         .collect();
 
-    let r = insersion_sort(&mut seq);
+    let r = insersion_sort2(&mut seq);
     let output: String = seq.into_iter().map(|x| x.to_string()).join(" ");
     writer.write(output.as_bytes())?;
 
