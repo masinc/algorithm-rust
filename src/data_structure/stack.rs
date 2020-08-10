@@ -111,7 +111,7 @@ impl<T> VecStack<T> {
 
 const ARRAY_STACK_SIZE: usize = 256;
 
-pub struct ArrayStack<T: Default + Copy> {
+pub struct ArrayStack<T: Default> {
     len: usize,
     items: [T; ARRAY_STACK_SIZE],
 }
@@ -125,7 +125,7 @@ impl<T: Default + Copy> ArrayStack<T> {
     }
 }
 
-impl<T: Default + Copy + Debug> Stack<T> for ArrayStack<T> {
+impl<T: Default> Stack<T> for ArrayStack<T> {
     fn push(&mut self, item: T) -> Result<(), PushError> {
         let target = self.items.get_mut(self.len);
         match target {
@@ -143,9 +143,9 @@ impl<T: Default + Copy + Debug> Stack<T> for ArrayStack<T> {
         }
 
         self.len -= 1;
-        let r = self.items.get(self.len).unwrap();
+        let r = self.items.get_mut(self.len).unwrap();
 
-        Ok(*r)
+        Ok(std::mem::replace(r, Default::default()))
     }
     fn is_empty(&self) -> bool {
         self.len == 0
