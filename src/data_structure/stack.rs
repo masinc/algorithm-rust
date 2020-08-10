@@ -1,4 +1,5 @@
 use core::fmt::Display;
+use std::fmt::Debug;
 use std::{error::Error, io::prelude::*};
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
@@ -61,45 +62,104 @@ impl Display for PopError {
 }
 impl Error for PopError {}
 
-pub struct Stack<T> {
-    items: Vec<T>,
+trait Stack<T> {
+    fn push(&mut self, item: T) -> Result<(), PushError>;
+    fn pop(&mut self) -> Result<T, PopError>;
+    fn is_empty(&self) -> bool;
+    fn is_full(&self) -> bool;
+    fn capacity(&self) -> usize;
 }
 
-impl<T> Stack<T> {
-    pub fn new(capcacity: usize) -> Self {
-        Self {
-            items: Vec::with_capacity(capcacity),
-        }
-    }
-
-    pub fn push(&mut self, item: T) -> Result<(), PushError> {
+impl<T> Stack<T> for VecStack<T> {
+    fn push(&mut self, item: T) -> Result<(), PushError> {
         if self.is_full() {
             return Err(PushError::IsFull);
         }
+
         self.items.push(item);
         Ok(())
     }
 
-    pub fn pop(&mut self) -> Result<T, PopError> {
-        if self.is_empty() {
-            return Err(PopError::IsEmpty);
-        }
-        Ok(self.items.pop().unwrap())
+    fn pop(&mut self) -> Result<T, PopError> {
+        self.items.pop().ok_or(PopError::IsEmpty)
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.items.len() == 0
+    fn is_empty(&self) -> bool {
+        self.items.is_empty()
     }
 
-    pub fn is_full(&self) -> bool {
-        self.items.len() == self.items.capacity()
+    fn is_full(&self) -> bool {
+        self.capacity() <= self.items.len()
+    }
+
+    fn capacity(&self) -> usize {
+        self.items.capacity()
     }
 }
 
-const STACK_SIZE: usize = 16;
+pub struct VecStack<T> {
+    items: Vec<T>,
+}
+
+impl<T> VecStack<T> {
+    pub fn new(capcacity: usize) -> Self {
+        VecStack {
+            items: Vec::with_capacity(capcacity),
+        }
+    }
+}
+
+const ARRAY_STACK_SIZE: usize = 256;
+
+pub struct ArrayStack<T: Default + Copy> {
+    len: usize,
+    items: [T; ARRAY_STACK_SIZE],
+}
+
+impl<T: Default + Copy> ArrayStack<T> {
+    pub fn new() -> Self {
+        Self {
+            len: 0,
+            items: [Default::default(); ARRAY_STACK_SIZE],
+        }
+    }
+}
+
+impl<T: Default + Copy + Debug> Stack<T> for ArrayStack<T> {
+    fn push(&mut self, item: T) -> Result<(), PushError> {
+        let target = self.items.get_mut(self.len);
+        match target {
+            Some(target) => {
+                *target = item;
+                self.len += 1;
+                Ok(())
+            }
+            None => Err(PushError::IsFull),
+        }
+    }
+    fn pop(&mut self) -> Result<T, PopError> {
+        if self.is_empty() {
+            return Err(PopError::IsEmpty);
+        }
+
+        self.len -= 1;
+        let r = self.items.get(self.len).unwrap();
+
+        Ok(*r)
+    }
+    fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+    fn is_full(&self) -> bool {
+        self.len >= self.capacity()
+    }
+    fn capacity(&self) -> usize {
+        ARRAY_STACK_SIZE
+    }
+}
 
 fn compute(items: &[Ident]) -> Result<isize, Box<dyn Error>> {
-    let mut stack = Stack::new(STACK_SIZE);
+    let mut stack = ArrayStack::new();
     for item in items {
         match item {
             Ident::Int(item) => {
