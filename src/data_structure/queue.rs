@@ -38,6 +38,51 @@ impl<T> Queue<T> for VecQueue<T> {
     }
 }
 
+const ARRAY_QUEUE_SIZE: usize = 256;
+use std::mem::MaybeUninit;
+pub struct ArrayQueue<T> {
+    items: [MaybeUninit<T>; ARRAY_QUEUE_SIZE],
+    head: usize,
+    tail: usize,
+}
+
+impl<T> ArrayQueue<T> {
+    pub fn new() -> Self {
+        Self {
+            items: unsafe { MaybeUninit::uninit().assume_init() },
+            head: 0,
+            tail: 0,
+        }
+    }
+}
+
+impl<T> Queue<T> for ArrayQueue<T> {
+    fn enqueue(&mut self, x: T) {
+        let item = self.items.get_mut(self.tail).unwrap();
+        self.tail += 1;
+
+        unsafe {
+            *item.as_mut_ptr() = x;
+        }
+    }
+    fn dequeue(&mut self) -> T {
+        let item = self.items.get_mut(self.head).unwrap();
+        self.head += 1;
+
+        let r: MaybeUninit<T> = std::mem::replace(item, MaybeUninit::uninit());
+        unsafe { r.assume_init() }
+    }
+    fn is_empty(&self) -> bool {
+        self.tail == self.head
+    }
+    fn is_full(&self) -> bool {
+        self.tail >= ARRAY_QUEUE_SIZE
+    }
+    fn len(&self) -> usize {
+        self.tail - self.head
+    }
+}
+
 #[derive(Eq, PartialEq, Clone, Default, Hash)]
 pub struct Process {
     name: String,
@@ -119,6 +164,21 @@ mod test {
         assert_eq!(100, q.dequeue());
         assert!(q.is_empty());
     }
+
+    #[test]
+    fn test_array_queue() {
+        let mut q = ArrayQueue::new();
+        q.enqueue(1);
+        q.enqueue(10);
+        q.enqueue(100);
+
+        assert!(!q.is_full());
+        assert_eq!(1, q.dequeue());
+        assert_eq!(10, q.dequeue());
+        assert_eq!(100, q.dequeue());
+        assert!(q.is_empty());
+    }
+
     #[test]
     fn test1() {
         let input = ["5 100", "p1 150", "p2 80", "p3 200", "p4 350", "p5 20"].join("\n");
