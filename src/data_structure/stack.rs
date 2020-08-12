@@ -1,7 +1,7 @@
 use core::fmt::Display;
 use std::fmt::Debug;
+use std::mem::{self, MaybeUninit};
 use std::{error::Error, io::prelude::*};
-
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub enum Ident {
     Int(isize),
@@ -62,7 +62,7 @@ impl Display for PopError {
 }
 impl Error for PopError {}
 
-trait Stack<T> {
+pub trait Stack<T> {
     fn push(&mut self, item: T) -> Result<(), PushError>;
     fn pop(&mut self) -> Result<T, PopError>;
     fn is_empty(&self) -> bool;
@@ -111,27 +111,29 @@ impl<T> VecStack<T> {
 
 const ARRAY_STACK_SIZE: usize = 256;
 
-pub struct ArrayStack<T: Default> {
-    len: usize,
-    items: [T; ARRAY_STACK_SIZE],
+pub struct ArrayStack<T> {
+    tail: usize,
+    items: [MaybeUninit<T>; ARRAY_STACK_SIZE],
 }
 
-impl<T: Default + Copy> ArrayStack<T> {
+impl<T> ArrayStack<T> {
     pub fn new() -> Self {
         Self {
-            len: 0,
-            items: [Default::default(); ARRAY_STACK_SIZE],
+            tail: 0,
+            items: unsafe { MaybeUninit::uninit().assume_init() },
         }
     }
 }
 
-impl<T: Default> Stack<T> for ArrayStack<T> {
+impl<T> Stack<T> for ArrayStack<T> {
     fn push(&mut self, item: T) -> Result<(), PushError> {
-        let target = self.items.get_mut(self.len);
+        let target = self.items.get_mut(self.tail);
         match target {
             Some(target) => {
-                *target = item;
-                self.len += 1;
+                unsafe {
+                    *target.as_mut_ptr() = item;
+                }
+                self.tail += 1;
                 Ok(())
             }
             None => Err(PushError::IsFull),
@@ -142,16 +144,18 @@ impl<T: Default> Stack<T> for ArrayStack<T> {
             return Err(PopError::IsEmpty);
         }
 
-        self.len -= 1;
-        let r = self.items.get_mut(self.len).unwrap();
+        self.tail -= 1;
+        let r = self.items.get_mut(self.tail).unwrap();
 
-        Ok(std::mem::replace(r, Default::default()))
+        let r = mem::replace(r, MaybeUninit::uninit());
+
+        unsafe { Ok(r.assume_init()) }
     }
     fn is_empty(&self) -> bool {
-        self.len == 0
+        self.tail == 0
     }
     fn is_full(&self) -> bool {
-        self.len >= self.capacity()
+        self.tail >= self.capacity()
     }
     fn capacity(&self) -> usize {
         ARRAY_STACK_SIZE
@@ -197,6 +201,51 @@ pub fn input_stack(reader: &mut impl Read, writer: &mut impl Write) -> Result<()
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_array_stack() {
+        let mut s = ArrayStack::new();
+        assert!(s.is_empty());
+        assert!(s.push(1).is_ok());
+        assert!(s.push(2).is_ok());
+        assert!(s.push(3).is_ok());
+
+        assert_eq!(s.pop(), Ok(3));
+        assert_eq!(s.pop(), Ok(2));
+        assert_eq!(s.pop(), Ok(1));
+        assert!(s.is_empty());
+        assert!(!s.is_full());
+
+        for x in 0..ARRAY_STACK_SIZE {
+            assert!(s.push(x).is_ok());
+        }
+        assert!(s.is_full());
+        assert_eq!(s.push(0), Err(PushError::IsFull));
+        for x in (0..ARRAY_STACK_SIZE).rev() {
+            assert_eq!(s.pop(), Ok(x));
+        }
+
+        assert_eq!(s.pop(), Err(PopError::IsEmpty));
+    }
+
+    #[test]
+    fn test_vec_stack() {
+        let mut s = VecStack::new(3);
+        assert!(s.is_empty());
+        assert!(!s.is_full());
+        assert!(s.push(1).is_ok());
+        assert!(s.push(2).is_ok());
+        assert!(s.push(3).is_ok());
+        assert!(s.is_full());
+        assert_eq!(s.push(0), Err(PushError::IsFull));
+
+        assert_eq!(s.pop(), Ok(3));
+        assert_eq!(s.pop(), Ok(2));
+        assert_eq!(s.pop(), Ok(1));
+        assert!(s.is_empty());
+        assert_eq!(s.pop(), Err(PopError::IsEmpty));
+    }
+
     #[test]
     fn test1() {
         let input = "1 2 + 3 4 - *".to_string();
