@@ -1,35 +1,36 @@
 use itertools::Itertools;
 use std::{
+    collections::HashSet,
     error::Error,
+    hash::Hash,
     io::{prelude::*, BufReader},
 };
 
-pub trait Dictionary<T: PartialEq, UIndex> {
+pub trait Dictionary<T> {
     fn insert(&mut self, value: T);
-    fn find(&self, value: &T) -> Option<UIndex>;
+    fn find(&self, value: &T) -> bool;
 }
 
-#[derive(Debug, Hash, PartialEq)]
-struct VecDictionary<T: PartialEq> {
-    items: Vec<T>,
+#[derive(Debug)]
+struct HashSetDictionary<T> {
+    items: HashSet<T>,
 }
 
-impl<T: PartialEq> VecDictionary<T> {
+impl<T: PartialEq> HashSetDictionary<T> {
     pub fn new(capaticy: usize) -> Self {
-        Self {
-            items: Vec::with_capacity(capaticy),
+        HashSetDictionary {
+            items: HashSet::with_capacity(capaticy),
         }
     }
 }
 
-impl<T: PartialEq + Ord> Dictionary<T, usize> for VecDictionary<T> {
+impl<T: Hash + Eq> Dictionary<T> for HashSetDictionary<T> {
     fn insert(&mut self, value: T) {
-        self.items.push(value);
-        self.items.sort();
+        self.items.insert(value);
     }
 
-    fn find(&self, value: &T) -> Option<usize> {
-        self.items.binary_search(value).ok()
+    fn find(&self, value: &T) -> bool {
+        self.items.get(&value).is_some()
     }
 }
 
@@ -52,15 +53,14 @@ impl Command {
 pub fn compute(commands: &[Command]) -> Result<Vec<bool>, Box<dyn Error>> {
     let mut result = vec![];
 
-    let mut dict = VecDictionary::new(commands.len());
+    let mut dict = HashSetDictionary::new(commands.len());
     for command in commands {
         match command {
             Command::Insert(x) => {
                 dict.insert(x);
             }
             Command::Find(x) => {
-                let r = dict.find(&x).map(|_| true).unwrap_or(false);
-                result.push(r);
+                result.push(dict.find(&x));
             }
         }
     }
