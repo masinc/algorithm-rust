@@ -5,10 +5,13 @@ use std::{
 };
 
 pub fn compute(seq: &[usize], targets: &[usize]) -> Result<Vec<bool>, Box<dyn Error>> {
+    let combinations: Vec<Vec<Vec<&usize>>> = (1..(seq.len()))
+        .map(|i| seq.iter().combinations(i).into_iter().collect())
+        .collect();
     let compute_inner = |target| {
         for i in 1..(seq.len()) {
-            for c in seq.iter().combinations(i) {
-                if target == c.iter().map(|x| **x).sum::<usize>() {
+            for c in combinations.get(i).unwrap() {
+                if target == c.iter().map(|x| *x).sum::<usize>() {
                     return true;
                 }
             }
